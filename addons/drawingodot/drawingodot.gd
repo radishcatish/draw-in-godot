@@ -1,6 +1,6 @@
 @tool
 extends EditorPlugin
-
+var scene_root = EditorInterface.get_edited_scene_root()
 var is_drawing: bool = false
 var current_line: Line2D
 var undo_redo: EditorUndoRedoManager
@@ -25,7 +25,8 @@ func _on_selection_changed() -> void:
 func _handles(object: Object) -> bool:
 	if object is DrawCanvas:
 		return true
-	return false
+	else:
+		return false
 
 func _forward_canvas_gui_input(event: InputEvent) -> bool:
 	if not active_canvas or not is_instance_valid(active_canvas):
@@ -35,31 +36,23 @@ func _forward_canvas_gui_input(event: InputEvent) -> bool:
 		return false
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
+		if event.pressed and not is_drawing:
 			start_line()
 			return true
 		else:
 			stop_line()
 			return true
 			
-	elif event is InputEventMouseMotion and is_drawing:
+	elif is_drawing:
 		add_point_to_line()
 		return true
 
 	return false
-
-func get_editor_mouse_pos() -> Vector2:
-	var scene_root = EditorInterface.get_edited_scene_root()
-	if scene_root is Node2D:
-		return scene_root.get_local_mouse_position()
-	elif scene_root is Control:
-		return scene_root.get_local_mouse_position()
-	return Vector2.ZERO
-
+	
 var current_poly: Polygon2D = null
 
 func start_line() -> void:
-	var scene_root = EditorInterface.get_edited_scene_root()
+	scene_root = EditorInterface.get_edited_scene_root()
 	if not scene_root or not active_canvas:
 		return
 	is_drawing = true
@@ -93,19 +86,17 @@ func start_line() -> void:
 	undo_redo.add_do_property(current_line, "owner", scene_root)
 	undo_redo.add_undo_method(active_canvas, "remove_child", stroke_group)
 	undo_redo.commit_action()
-	var mouse_pos = get_editor_mouse_pos()
+	var mouse_pos = scene_root.get_global_mouse_position()
 	current_line.add_point(mouse_pos)
-	if current_poly:
-		current_poly.polygon = current_line.points
+	
 
 func add_point_to_line() -> void:
-	if current_line:
-		var mouse_pos = get_editor_mouse_pos()
-		if current_line.get_point_count() == 0 or current_line.points[-1].distance_to(mouse_pos) > 2.0:
-			current_line.add_point(mouse_pos)
+	var mouse_pos = scene_root.get_global_mouse_position()
+	if current_line.points[-1].distance_to(mouse_pos) > 2.0:
+		current_line.add_point(mouse_pos)
 
-			if current_poly:
-				current_poly.polygon = current_line.points
+		if current_poly:
+			current_poly.polygon = current_line.points
 
 func stop_line() -> void:
 	is_drawing = false
